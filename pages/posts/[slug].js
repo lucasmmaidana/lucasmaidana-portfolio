@@ -1,4 +1,3 @@
-import Head from 'next/head'
 import { useRouter } from 'next/router'
 import ErrorPage from 'next/error'
 import Container from '../../components/container'
@@ -6,30 +5,20 @@ import PostBody from '../../components/post-body'
 import MoreStories from '../../components/more-stories'
 import Header from '../../components/header'
 import PostHeader from '../../components/post-header'
+import Comments from '../../components/comments'
 import SectionSeparator from '../../components/section-separator'
 import Layout from '../../components/layout'
+import { getAllPostsWithSlug, getPostAndMorePosts } from '../../lib/api'
 import PostTitle from '../../components/post-title'
+import Head from 'next/head'
 import { CMS_NAME } from '../../lib/constants'
-import { postQuery, postSlugsQuery } from '../../lib/queries'
-import { urlForImage, usePreviewSubscription } from '../../lib/sanity'
-import { sanityClient, getClient, overlayDrafts } from '../../lib/sanity.server'
+import Form from '../../components/form'
 
-export default function Post({ data = {}, preview }) {
+export default function Post({ post, morePosts, preview }) {
   const router = useRouter()
-
-  const slug = data?.post?.slug
-  const {
-    data: { post, morePosts },
-  } = usePreviewSubscription(postQuery, {
-    params: { slug },
-    initialData: data,
-    enabled: preview && slug,
-  })
-
-  if (!router.isFallback && !slug) {
+  if (!router.isFallback && !post?.slug) {
     return <ErrorPage statusCode={404} />
   }
-
   return (
     <Layout preview={preview}>
       <Container>
@@ -43,17 +32,7 @@ export default function Post({ data = {}, preview }) {
                 <title>
                   {post.title} | Next.js Blog Example with {CMS_NAME}
                 </title>
-                {post.coverImage && (
-                  <meta
-                    key="ogImage"
-                    property="og:image"
-                    content={urlForImage(post.coverImage)
-                      .width(1200)
-                      .height(627)
-                      .fit('crop')
-                      .url()}
-                  />
-                )}
+                {/* <meta property="og:image" content={post.ogImage.url} /> */}
               </Head>
               <PostHeader
                 title={post.title}
@@ -61,8 +40,12 @@ export default function Post({ data = {}, preview }) {
                 date={post.date}
                 author={post.author}
               />
-              <PostBody content={post.content} />
+              <PostBody content={post.body} />
             </article>
+
+            <Comments comments={post.comments} />
+            <Form _id={post._id} />
+
             <SectionSeparator />
             {morePosts.length > 0 && <MoreStories posts={morePosts} />}
           </>
@@ -73,25 +56,26 @@ export default function Post({ data = {}, preview }) {
 }
 
 export async function getStaticProps({ params, preview = false }) {
-  const { post, morePosts } = await getClient(preview).fetch(postQuery, {
-    slug: params.slug,
-  })
-
+  const data = await getPostAndMorePosts(params.slug, preview)
   return {
     props: {
       preview,
-      data: {
-        post,
-        morePosts: overlayDrafts(morePosts),
-      },
+      post: data?.post || null,
+      morePosts: data?.morePosts || null,
     },
+    revalidate: 1
   }
 }
 
 export async function getStaticPaths() {
-  const paths = await sanityClient.fetch(postSlugsQuery)
+  const allPosts = await getAllPostsWithSlug()
   return {
-    paths: paths.map((slug) => ({ params: { slug } })),
+    paths:
+      allPosts?.map((post) => ({
+        params: {
+          slug: post.slug,
+        },
+      })) || [],
     fallback: true,
   }
 }
