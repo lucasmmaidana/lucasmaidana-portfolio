@@ -1,5 +1,21 @@
 import { DocumentIcon } from "@sanity/icons"
 
+export type Project = {
+  title: string
+  slug: string
+  image: {
+    asset: {
+      url: string
+    }
+  }
+  stack: string[]
+  date: string
+  shortDescription: string
+  description: string
+  demo: string
+  code: string
+}
+
 export default {
   name: "project",
   title: "Project",
@@ -40,7 +56,7 @@ export default {
       type: "datetime",
     },
     {
-      name: "Short Description",
+      name: "ShortDescription",
       title: "shortDescription",
       type: "blockContent",
     },
